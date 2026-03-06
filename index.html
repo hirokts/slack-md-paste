@@ -10,6 +10,8 @@
         textarea { width: 100%; min-height: 180px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; line-height: 1.5; box-sizing: border-box; resize: vertical; }
         button { padding: 15px; border: none; border-radius: 8px; background: #4A154B; color: white; font-weight: bold; font-size: 18px; cursor: pointer; }
         button:active { background: #611f62; transform: scale(0.98); }
+        .btn-mobile { background: #1264A3; }
+        .btn-mobile:active { background: #0f5a94; }
         .status { text-align: center; color: #666; font-size: 14px; height: 1.5em; }
         .debug-block { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
         .debug-summary { font-size: 13px; color: #666; cursor: pointer; user-select: none; }
@@ -20,6 +22,7 @@
 <div class="container">
     <h3>Markdown → Slack</h3>
     <button onclick="handleConvertFromClipboard()">Convert Clipboard</button>
+    <button class="btn-mobile" onclick="handleConvertFromClipboard(true)">Convert Clipboard (Mobile)</button>
     <div id="status" class="status"></div>
 
     <details>
@@ -35,7 +38,7 @@
 <script>
 
 // --- あなたのn8nロジックを移植 ---
-function markdownToSlack(md) {
+function markdownToSlack(md, mobile = false) {
     if (!md) return "";
     let text = md;
     const tokens = {};
@@ -94,10 +97,10 @@ function markdownToSlack(md) {
     });
 
     text = text
-        .replace(/^####\s+(.+)$/gm, (_, h) => `*【${h.trim()}】*`)
-        .replace(/^###\s+(.+)$/gm,  (_, h) => `*【${h.trim()}】*`)
-        .replace(/^##\s+(.+)$/gm,   (_, h) => `*【${h.trim()}】*`)
-        .replace(/^#\s+(.+)$/gm,    (_, h) => `*【${h.trim()}】*`);
+        .replace(/^####\s+(.+)$/gm, (_, h) => mobile ? `【${h.trim()}】` : `*【${h.trim()}】*`)
+        .replace(/^###\s+(.+)$/gm,  (_, h) => mobile ? `【${h.trim()}】` : `*【${h.trim()}】*`)
+        .replace(/^##\s+(.+)$/gm,   (_, h) => mobile ? `【${h.trim()}】` : `*【${h.trim()}】*`)
+        .replace(/^#\s+(.+)$/gm,    (_, h) => mobile ? `【${h.trim()}】` : `*【${h.trim()}】*`);
 
     text = text.replace(/^ {4}[-*+]\s+/gm, "    ◦ ");
     text = text.replace(/^ {2}[-*+]\s+/gm, "  ◦ ");
@@ -106,13 +109,14 @@ function markdownToSlack(md) {
     const JP_ALNUM = /[\u3040-\u30ff\u3400-\u9fffA-Za-z0-9]/;
     text = text.replace(/\*\*(.+?)\*\*|__(.+?)__/g, (m, g1, g2, offset, src) => {
         const inner = (g1 || g2).trim();
+        if (mobile) return inner;
         const before = offset > 0 ? src.charAt(offset - 1) : "";
         const after = src.charAt(offset + m.length);
         const pre = (before && before !== " " && before !== "\n" && JP_ALNUM.test(before)) ? " " : "";
         const post = (JP_ALNUM.test(after)) ? " " : "";
         return pre + `*${inner}*` + post;
     });
-    text = text.replace(/~~(.+?)~~/g, (_, s) => `~${s}~`);
+    text = text.replace(/~~(.+?)~~/g, (_, s) => mobile ? s : `~${s}~`);
     text = text.replace(HR_RE, "────────");
     text = text.replace(MD_IMAGE_RE, (_, alt, url) => `<${url}|${alt || "image"}>`);
     text = text.replace(MD_LINK_RE,  (_, label, url) => `<${url}|${label}>`);
@@ -124,7 +128,7 @@ function markdownToSlack(md) {
     return text;
 }
 
-async function handleConvertFromClipboard() {
+async function handleConvertFromClipboard(mobile = false) {
     const status = document.getElementById('status');
 
     try {
@@ -134,7 +138,7 @@ async function handleConvertFromClipboard() {
             setTimeout(() => { status.innerText = ""; }, 2000);
             return;
         }
-        const converted = markdownToSlack(raw);
+        const converted = markdownToSlack(raw, mobile);
         await navigator.clipboard.writeText(converted);
         status.innerText = "✅ 変換＆コピー完了！";
         setTimeout(() => { status.innerText = ""; }, 2000);
@@ -154,7 +158,7 @@ async function handleConvertFromTextarea() {
         return;
     }
 
-    const converted = markdownToSlack(raw);
+    const converted = markdownToSlack(raw, false);
     input.value = converted;
 
     try {
