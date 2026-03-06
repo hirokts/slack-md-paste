@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MD to Slack</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f7f9; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+        textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { padding: 15px; border: none; border-radius: 8px; background: #4A154B; color: white; font-weight: bold; font-size: 18px; cursor: pointer; }
+        button:active { background: #611f62; transform: scale(0.98); }
+        .status { text-align: center; color: #666; font-size: 14px; height: 1.5em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3>Markdown → Slack 変換</h3>
+    <textarea id="input" placeholder="ここにGeminiの回答をペースト"></textarea>
+    <button onclick="handleConvert()">変換してコピー！</button>
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+// --- あなたのn8nロジックを移植 ---
+function markdownToSlack(md) {
+    if (!md) return "";
+    let text = md;
+    const tokens = {};
+    let tokId = 0;
+
+    const save = (payload, kind) => {
+        const t = `@@${kind}${tokId++}@@`;
+        tokens[t] = payload;
+        return t;
+    };
+
+    // 正規表現の定義（n8n環境に合わせる）
+    const CODE_BLOCK_RE = /```(\w+)?\n([\s\S]+?)\n```/g;
+    const INLINE_CODE_RE = /`([^`]+)`/g;
+    const HR_RE = /^---$|^===$|^\*\*\*$/gm;
+    const MD_IMAGE_RE = /!\[(.*?)\]\((.*?)\)/g;
+    const MD_LINK_RE = /\[(.*?)\]\((.*?)\)/g;
+
+    text = text.replace(CODE_BLOCK_RE, (_, lang, code) => save("```" + code + "```", "BLOCK"));
+    text = text.replace(INLINE_CODE_RE, (_, code) => save("`" + code + "`", "INLINE"));
+
+    text = text
+        .replace(/^####\s+(.+)$/gm, (_, h) => `*【${h.trim()}】*`)
+        .replace(/^###\s+(.+)$/gm,  (_, h) => `*【${h.trim()}】*`)
+        .replace(/^##\s+(.+)$/gm,   (_, h) => `*【${h.trim()}】*`)
+        .replace(/^#\s+(.+)$/gm,    (_, h) => `*【${h.trim()}】*`);
+
+    text = text.replace(/^ {4}[-*+]\s+/gm, "    ◦ ");
+    text = text.replace(/^ {2}[-*+]\s+/gm, "  ◦ ");
+    text = text.replace(/^[-*+]\s+/gm, "• ");
+
+    text = text.replace(/\*\*(.+?)\*\*|__(.+?)__/g, (_, g1, g2) => `*${g1 || g2}*`);
+    text = text.replace(/~~(.+?)~~/g, (_, s) => `~${s}~`);
+    text = text.replace(/(• [^*\n]*\*[^*\n]+\*)([^\s\n])/g, "$1 $2");
+    text = text.replace(HR_RE, "────────");
+    text = text.replace(MD_IMAGE_RE, (_, alt, url) => `<${url}|${alt || "image"}>`);
+    text = text.replace(MD_LINK_RE,  (_, label, url) => `<${url}|${label}>`);
+    text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+    for (const [t, payload] of Object.entries(tokens)) {
+        text = text.split(t).join(payload);
+    }
+    return text;
+}
+
+async function handleConvert() {
+    const inputArea = document.getElementById('input');
+    const status = document.getElementById('status');
+    
+    // 変換実行
+    const converted = markdownToSlack(inputArea.value);
+    inputArea.value = converted;
+
+    // クリップボードへコピー
+    try {
+        await navigator.clipboard.writeText(converted);
+        status.innerText = "✅ 変換＆コピー完了！";
+        setTimeout(() => { status.innerText = ""; }, 2000);
+    } catch (err) {
+        status.innerText = "❌ コピーに失敗しました";
+    }
+}
+</script>
+</body>
+</html>
