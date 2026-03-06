@@ -55,6 +55,42 @@ function markdownToSlack(md) {
     text = text.replace(CODE_BLOCK_RE, (_, lang, code) => save("```" + code + "```", "BLOCK"));
     text = text.replace(INLINE_CODE_RE, (_, code) => save("`" + code + "`", "INLINE"));
 
+    const dispWidth = (str) => {
+        let w = 0;
+        for (const ch of str) {
+            const cp = ch.codePointAt(0);
+            if (cp >= 0x1100 && (
+                cp <= 0x115f || cp === 0x2329 || cp === 0x232a ||
+                (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f) ||
+                (cp >= 0xac00 && cp <= 0xd7a3) ||
+                (cp >= 0xf900 && cp <= 0xfaff) ||
+                (cp >= 0xfe10 && cp <= 0xfe6f) ||
+                (cp >= 0xff01 && cp <= 0xff60) ||
+                (cp >= 0xffe0 && cp <= 0xffe6) ||
+                (cp >= 0x20000 && cp <= 0x2fffd) ||
+                (cp >= 0x30000 && cp <= 0x3fffd)
+            )) { w += 1.7; } else { w += 1; }
+        }
+        return w;
+    };
+    const padEndW = (str, width) => str + " ".repeat(Math.max(0, width - dispWidth(str)));
+
+    const TABLE_RE = /((?:^\|.+\|\s*\n)+)/gm;
+    text = text.replace(TABLE_RE, (block) => {
+        const rows = block.trim().split("\n").filter(r => !/^\|\s*[-:]+/.test(r));
+        const parsed = rows.map(r =>
+            r.replace(/^\||\|$/g, "").split("|").map(c => c.replace(/\*\*(.+?)\*\*/g, "$1").trim())
+        );
+        const cols = parsed[0] ? parsed[0].length : 0;
+        const widths = Array.from({length: cols}, (_, i) =>
+            Math.max(...parsed.map(r => dispWidth(r[i] || "")))
+        );
+        const formatted = parsed.map(r =>
+            "| " + r.map((c, i) => padEndW(c || "", widths[i])).join(" | ") + " |"
+        );
+        return save("```\n" + formatted.join("\n") + "\n```", "TABLE") + "\n";
+    });
+
     text = text
         .replace(/^####\s+(.+)$/gm, (_, h) => `*【${h.trim()}】*`)
         .replace(/^###\s+(.+)$/gm,  (_, h) => `*【${h.trim()}】*`)
