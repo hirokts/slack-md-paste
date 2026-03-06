@@ -104,8 +104,11 @@ function markdownToSlack(md) {
     const JP_ALNUM = /[\u3040-\u30ff\u3400-\u9fffA-Za-z0-9]/;
     text = text.replace(/\*\*(.+?)\*\*|__(.+?)__/g, (m, g1, g2, offset, src) => {
         const inner = (g1 || g2).trim();
+        const before = offset > 0 ? src.charAt(offset - 1) : "";
         const after = src.charAt(offset + m.length);
-        return `*${inner}*` + (JP_ALNUM.test(after) ? " " : "");
+        const pre = (before && before !== " " && before !== "\n" && JP_ALNUM.test(before)) ? " " : "";
+        const post = (JP_ALNUM.test(after)) ? " " : "";
+        return pre + `*${inner}*` + post;
     });
     text = text.replace(/~~(.+?)~~/g, (_, s) => `~${s}~`);
     text = text.replace(HR_RE, "────────");
