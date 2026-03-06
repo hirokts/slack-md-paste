@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MD to Slack</title>
+    <title>Markdown to Slack</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f4f7f9; color: #333; }
         .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
@@ -12,22 +12,24 @@
         button:active { background: #611f62; transform: scale(0.98); }
         .status { text-align: center; color: #666; font-size: 14px; height: 1.5em; }
         .debug-block { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
-        .debug-label { font-size: 13px; color: #666; }
+        .debug-summary { font-size: 13px; color: #666; cursor: pointer; user-select: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h3>Markdown → Slack 変換</h3>
-    <button onclick="handleConvertFromClipboard()">クリップボードを変換してコピー！</button>
+    <h3>Markdown → Slack</h3>
+    <button onclick="handleConvertFromClipboard()">Convert Clipboard</button>
     <div id="status" class="status"></div>
 
-    <div class="debug-block">
-        <div class="debug-label">デバッグ用（手動ペースト）</div>
-        <textarea id="debugInput" placeholder="ここにMarkdownを貼り付け"></textarea>
-        <button onclick="handleConvertFromTextarea()">下のテキストを変換してコピー！</button>
-        <div id="debugStatus" class="status"></div>
-    </div>
+    <details>
+        <summary class="debug-summary">Manual Paste</summary>
+        <div class="debug-block">
+            <textarea id="debugInput" placeholder="Paste your Markdown here"></textarea>
+            <button onclick="handleConvertFromTextarea()">Convert Textarea and Copy</button>
+            <div id="debugStatus" class="status"></div>
+        </div>
+    </details>
 </div>
 
 <script>
