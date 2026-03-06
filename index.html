@@ -7,9 +7,12 @@
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f4f7f9; color: #333; }
         .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+        textarea { width: 100%; min-height: 180px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; line-height: 1.5; box-sizing: border-box; resize: vertical; }
         button { padding: 15px; border: none; border-radius: 8px; background: #4A154B; color: white; font-weight: bold; font-size: 18px; cursor: pointer; }
         button:active { background: #611f62; transform: scale(0.98); }
         .status { text-align: center; color: #666; font-size: 14px; height: 1.5em; }
+        .debug-block { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .debug-label { font-size: 13px; color: #666; }
     </style>
 </head>
 <body>
@@ -18,9 +21,17 @@
     <h3>Markdown → Slack 変換</h3>
     <button onclick="handleConvertFromClipboard()">クリップボードを変換してコピー！</button>
     <div id="status" class="status"></div>
+
+    <div class="debug-block">
+        <div class="debug-label">デバッグ用（手動ペースト）</div>
+        <textarea id="debugInput" placeholder="ここにMarkdownを貼り付け"></textarea>
+        <button onclick="handleConvertFromTextarea()">下のテキストを変換してコピー！</button>
+        <div id="debugStatus" class="status"></div>
+    </div>
 </div>
 
 <script>
+
 // --- あなたのn8nロジックを移植 ---
 function markdownToSlack(md) {
     if (!md) return "";
@@ -54,9 +65,13 @@ function markdownToSlack(md) {
     text = text.replace(/^ {2}[-*+]\s+/gm, "  ◦ ");
     text = text.replace(/^[-*+]\s+/gm, "• ");
 
-    text = text.replace(/\*\*(.+?)\*\*|__(.+?)__/g, (_, g1, g2) => `*${g1 || g2}*`);
+    const JP_ALNUM = /[\u3040-\u30ff\u3400-\u9fffA-Za-z0-9]/;
+    text = text.replace(/\*\*(.+?)\*\*|__(.+?)__/g, (m, g1, g2, offset, src) => {
+        const inner = (g1 || g2).trim();
+        const after = src.charAt(offset + m.length);
+        return `*${inner}*` + (JP_ALNUM.test(after) ? " " : "");
+    });
     text = text.replace(/~~(.+?)~~/g, (_, s) => `~${s}~`);
-    text = text.replace(/(• [^*\n]*\*[^*\n]+\*)([^\s\n])/g, "$1 $2");
     text = text.replace(HR_RE, "────────");
     text = text.replace(MD_IMAGE_RE, (_, alt, url) => `<${url}|${alt || "image"}>`);
     text = text.replace(MD_LINK_RE,  (_, label, url) => `<${url}|${label}>`);
@@ -84,6 +99,29 @@ async function handleConvertFromClipboard() {
         setTimeout(() => { status.innerText = ""; }, 2000);
     } catch (err) {
         status.innerText = "❌ クリップボードにアクセスできません";
+    }
+}
+
+async function handleConvertFromTextarea() {
+    const input = document.getElementById('debugInput');
+    const status = document.getElementById('debugStatus');
+    const raw = input.value;
+
+    if (!raw) {
+        status.innerText = "❌ テキストエリアが空です";
+        setTimeout(() => { status.innerText = ""; }, 2000);
+        return;
+    }
+
+    const converted = markdownToSlack(raw);
+    input.value = converted;
+
+    try {
+        await navigator.clipboard.writeText(converted);
+        status.innerText = "✅ 変換＆コピー完了！";
+        setTimeout(() => { status.innerText = ""; }, 2000);
+    } catch (err) {
+        status.innerText = "⚠️ 変換は完了（コピー失敗）";
     }
 }
 </script>
